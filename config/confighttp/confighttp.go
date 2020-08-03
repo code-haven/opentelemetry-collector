@@ -16,6 +16,7 @@ package confighttp
 
 import (
 	"crypto/tls"
+	"github.com/NYTimes/gziphandler"
 	"net"
 	"net/http"
 	"time"
@@ -99,6 +100,7 @@ func (hss *HTTPServerSettings) ToServer(handler http.Handler) *http.Server {
 		co := cors.Options{AllowedOrigins: hss.CorsOrigins}
 		handler = cors.New(co).Handler(handler)
 	}
+	handler = gziphandler.GzipHandler(handler)
 	return &http.Server{
 		Handler: handler,
 	}
