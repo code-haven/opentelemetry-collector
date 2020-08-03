@@ -15,10 +15,7 @@
 package otlpreceiver
 
 import (
-	"compress/gzip"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"io"
-	"io/ioutil"
 )
 
 // xProtobufMarshaler is a Marshaler which wraps runtime.ProtoMarshaller
@@ -30,18 +27,4 @@ type xProtobufMarshaler struct {
 // ContentType always returns "application/x-protobuf".
 func (*xProtobufMarshaler) ContentType() string {
 	return "application/x-protobuf"
-}
-
-func (m *xProtobufMarshaler) NewDecoder(reader io.Reader) runtime.Decoder {
-	return runtime.DecoderFunc(func(value interface{}) error {
-		zReader, err := gzip.NewReader(reader)
-		if err != nil {
-			return err
-		}
-		buffer, err := ioutil.ReadAll(zReader)
-		if err != nil {
-			return err
-		}
-		return m.Unmarshal(buffer, value)
-	})
 }

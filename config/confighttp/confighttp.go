@@ -15,8 +15,9 @@
 package confighttp
 
 import (
+	"compress/gzip"
 	"crypto/tls"
-	"github.com/NYTimes/gziphandler"
+	"io"
 	"net"
 	"net/http"
 	"time"
@@ -95,12 +96,36 @@ func (hss *HTTPServerSettings) ToListener() (net.Listener, error) {
 	return listener, nil
 }
 
+func gunZippedBody(r io.ReadCloser) io.ReadCloser {
+	gzr, err := gzip.NewReader(r)
+	if err != nil {
+		return r
+	}
+	return gzr
+}
+
+func processBody(req *http.Request) io.ReadCloser {
+	switch req.Header.Get("Content-Encoding") {
+	default:
+		return req.Body
+	case "gzip":
+		return gunZippedBody(req.Body)
+	}
+}
+
+func gzipReaderHandler(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = processBody(r)
+		handler.ServeHTTP(w, r)
+	})
+}
+
 func (hss *HTTPServerSettings) ToServer(handler http.Handler) *http.Server {
 	if len(hss.CorsOrigins) > 0 {
 		co := cors.Options{AllowedOrigins: hss.CorsOrigins}
 		handler = cors.New(co).Handler(handler)
 	}
-	handler = gziphandler.GzipHandler(handler)
+	handler = gzipReaderHandler(handler)
 	return &http.Server{
 		Handler: handler,
 	}
