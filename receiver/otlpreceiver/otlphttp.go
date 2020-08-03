@@ -15,7 +15,7 @@
 package otlpreceiver
 
 import (
-	"compress/zlib"
+	"compress/gzip"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"io"
 	"io/ioutil"
@@ -34,7 +34,7 @@ func (*xProtobufMarshaler) ContentType() string {
 
 func (m *xProtobufMarshaler) NewDecoder(reader io.Reader) runtime.Decoder {
 	return runtime.DecoderFunc(func(value interface{}) error {
-		zReader, err := zlib.NewReader(reader)
+		zReader, err := gzip.NewReader(reader)
 		if err != nil {
 			return err
 		}
