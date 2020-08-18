@@ -15,8 +15,12 @@
 package otlpreceiver
 
 import (
+	"bytes"
+	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"errors"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"sync"
@@ -48,6 +52,39 @@ type otlpReceiver struct {
 
 	stopOnce        sync.Once
 	startServerOnce sync.Once
+}
+
+// httpBodyCompressionHandler is a HTTP middleware checks the "Content-Encoding" HTTP header and if
+// a compression such as "gzip", "deflate", "zlib", is found, the request body will
+// be uncompressed accordingly. It it encounters an error while do is, the original request is passed untouched.
+func httpBodyCompressionHandler(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Header.Get("Content-Encoding") {
+		case "gzip":
+			gr, err := gzip.NewReader(r.Body)
+			if err != nil {
+				break
+			}
+			defer gr.Close()
+			body, err := ioutil.ReadAll(gr)
+			if err != nil {
+				break
+			}
+			r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+		case "deflate", "zlib":
+			zr, err := zlib.NewReader(r.Body)
+			if err != nil {
+				break
+			}
+			defer zr.Close()
+			body, err := ioutil.ReadAll(zr)
+			if err != nil {
+				break
+			}
+			r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+		}
+		handler.ServeHTTP(w, r)
+	})
 }
 
 // newOtlpReceiver just creates the OpenTelemetry receiver services. It is the caller's
@@ -95,7 +132,7 @@ func (r *otlpReceiver) Start(_ context.Context, host component.Host) error {
 			}()
 		}
 		if r.cfg.HTTP != nil {
-			r.serverHTTP = r.cfg.HTTP.ToServer(r.gatewayMux)
+			r.serverHTTP = r.cfg.HTTP.ToServer(httpBodyCompressionHandler(r.gatewayMux))
 			var hln net.Listener
 			hln, err = r.cfg.HTTP.ToListener()
 			if err != nil {
