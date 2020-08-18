@@ -158,6 +158,7 @@ func TestLoadConfig(t *testing.T) {
 							KeyFile:  "test.key",
 						},
 					},
+					EnableDecompression: true,
 				},
 			},
 		})
@@ -170,8 +171,9 @@ func TestLoadConfig(t *testing.T) {
 			},
 			Protocols: Protocols{
 				HTTP: &confighttp.HTTPServerSettings{
-					Endpoint:    "0.0.0.0:55681",
-					CorsOrigins: []string{"https://*.test.com", "https://test.com"},
+					Endpoint:            "0.0.0.0:55681",
+					CorsOrigins:         []string{"https://*.test.com", "https://test.com"},
+					EnableDecompression: true,
 				},
 			},
 		})
@@ -193,6 +195,7 @@ func TestLoadConfig(t *testing.T) {
 				HTTP: &confighttp.HTTPServerSettings{
 					Endpoint: "/tmp/http_otlp.sock",
 					// Transport: "unix",
+					EnableDecompression: true,
 				},
 			},
 		})
