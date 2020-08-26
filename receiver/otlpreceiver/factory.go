@@ -67,8 +67,6 @@ func createDefaultConfig() configmodels.Receiver {
 			},
 			HTTP: &confighttp.HTTPServerSettings{
 				Endpoint: "0.0.0.0:55681",
-				// Enabled as grpc-gateway does not natively support request compression.
-				EnableDecompression: true,
 			},
 		},
 	}

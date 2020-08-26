@@ -15,8 +15,6 @@
 package confighttp
 
 import (
-	"compress/gzip"
-	"compress/zlib"
 	"crypto/tls"
 	"net"
 	"net/http"
@@ -109,11 +107,6 @@ type HTTPServerSettings struct {
 	// An empty list means that CORS is not enabled at all. A wildcard (*) can be
 	// used to match any origin or one or more characters of an origin.
 	CorsOrigins []string `mapstructure:"cors_allowed_origins"`
-
-	// EnableDecompression if true, a middleware is configured that decompresses the body
-	// of incoming HTTP requests based on the compression format in the Content-Encoding header.
-	// Currently, it has support for gzip and deflate/zlib.
-	EnableDecompression bool `mapstructure:"enable_decompression"`
 }
 
 func (hss *HTTPServerSettings) ToListener() (net.Listener, error) {
@@ -138,44 +131,7 @@ func (hss *HTTPServerSettings) ToServer(handler http.Handler) *http.Server {
 		co := cors.Options{AllowedOrigins: hss.CorsOrigins}
 		handler = cors.New(co).Handler(handler)
 	}
-	if hss.EnableDecompression {
-		handler = httpDecompressionHandler(handler)
-	}
 	return &http.Server{
 		Handler: handler,
 	}
-}
-
-// httpDecompressionHandler is a middleware that helps offload the task of handling compressed
-// HTTP requests by identifying the compression format in the "Content-Encoding" header and re-writing
-// request body so that the handlers further in the chain can work on decompressed data.
-// It supports gzip and deflate/zlib compression.
-func httpDecompressionHandler(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Header.Get("Content-Encoding") {
-		case "gzip":
-			gr, err := gzip.NewReader(r.Body)
-			if err != nil {
-				// TODO: OTLP expects error of type google.rpc.Status
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			defer gr.Close()
-			// "Content-Encoding" header is removed to avoid decompressing twice
-			// in case the next handler(s) have implemented a similar mechanism.
-			r.Header.Del("Content-Encoding")
-			r.Body = gr
-		case "deflate", "zlib":
-			zr, err := zlib.NewReader(r.Body)
-			if err != nil {
-				// TODO: OTLP expects error of type google.rpc.Status
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			defer zr.Close()
-			r.Header.Del("Content-Encoding")
-			r.Body = zr
-		}
-		handler.ServeHTTP(w, r)
-	})
 }
