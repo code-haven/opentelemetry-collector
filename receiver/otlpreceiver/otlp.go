@@ -67,6 +67,7 @@ func newOtlpReceiver(cfg *Config) (*otlpReceiver, error) {
 	if cfg.HTTP != nil {
 		r.gatewayMux = gatewayruntime.NewServeMux(
 			gatewayruntime.WithMarshalerOption("application/x-protobuf", &xProtobufMarshaler{}),
+			gatewayruntime.WithMarshalerOption("application/json", &jSONMarshaller{}),
 		)
 	}
 
